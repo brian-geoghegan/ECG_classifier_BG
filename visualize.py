@@ -15,6 +15,8 @@ def butter_bandpass_filter(data, lowcut, highcut, fs, order=3):
     y = lfilter(b, a, data)
     return y
 
+#Data sampled at 360/second
+samplingFreq = 360
 
 text_file = open("data.txt", "r")
 lines = text_file.readlines()
@@ -34,7 +36,7 @@ for x in lines:
     dataArray["mlII"].append(float(tempval[1]))
     counter = counter + 1
 
-dataArray["mlII"] = butter_bandpass_filter(dataArray["mlII"], 0.5, 2, 50, 3)
+dataArray["mlII"] = butter_bandpass_filter(dataArray["mlII"], 0.5, 2, samplingFreq, 3)
 
 plt.plot(dataArray["time"][:3000], dataArray["v5"][:3000])
 plt.show()
