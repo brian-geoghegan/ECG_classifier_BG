@@ -2,6 +2,7 @@
 import matplotlib.pyplot as plt
 import math
 import operator
+import random
 import time
 from scipy import signal
 from collections import OrderedDict
@@ -41,6 +42,51 @@ def get_change(current, previous):
         return percent
     except ZeroDivisionError:
          return 0
+
+def euclideanDistance(instance1, instance2, length):
+	distance = 0
+	for x in range(length):
+		distance += pow((instance1[x] - instance2[x]), 2)
+	return math.sqrt(distance)
+ 
+def getNeighbors(trainingSet, testInstance, k):
+	distances = []
+	length = len(testInstance)-1
+	for x in range(len(trainingSet)):
+		dist = euclideanDistance(testInstance, trainingSet[x], length)
+		distances.append((trainingSet[x], dist))
+	distances.sort(key=operator.itemgetter(1))
+	neighbors = []
+	for x in range(k):
+		neighbors.append(distances[x][0])
+	return neighbors
+ 
+def getResponse(neighbors):
+	classVotes = {}
+	for x in range(len(neighbors)):
+		response = neighbors[x][-1]
+		if response in classVotes:
+			classVotes[response] += 1
+		else:
+			classVotes[response] = 1
+	sortedVotes = sorted(classVotes.iteritems(), key=operator.itemgetter(1), reverse=True)
+	return sortedVotes[0][0]
+ 
+def getAccuracy(testSet, predictions):
+	correct = 0
+	for x in range(len(testSet)):
+		if testSet[x][-1] == predictions[x]:
+			correct += 1
+	return (correct/float(len(testSet))) * 100.0
+
+def splitData(split, featureList, trainingSet, testSet):
+    for x in range(len(featureList)-1):
+	for y in range(3):
+	    featureList[x][y] = float(featureList[x][y])
+        if random.random() < split:
+            trainingSet.append(featureList[x])
+        else:
+            testSet.append(featureList[x])
 
 # List to capture features of heartBeats
 featureList = []
@@ -120,18 +166,15 @@ RRIntervalList = []
 for i in range(len(heartBeatTimes)- 1):
     RRIntervalList.append(heartBeatTimes[i+1] - heartBeatTimes[i])
 
-counter = 0
-
 #remove first beats from data - these are incomplete feature wise
 for key in RPeaksMap.keys():
     print("The key : " + key)
     if float(key) < 0.6:
         del RPeaksMap[key]
     break
-print (len(RPeaksMap))
-print (len(RRIntervalList))
-print (len(classifications))
 
+counter = 0
+#Set feature list
 for key,value in RPeaksMap.items():
     time = key
     RPeakValue = value
@@ -142,12 +185,33 @@ for key,value in RPeaksMap.items():
 
 #for time in dataArray["time"]:
 
+
+#split feature list into training and test data
+trainingSet = []
+testSet = []
+split = 0.67
+splitData(split, featureList, trainingSet, testSet)
+predictions=[]
+k = 3
+for x in range(len(testSet)):
+	print(testSet[0])
+	neighbors = getNeighbors(trainingSet, testSet[x], k)
+	result = getResponse(neighbors)
+	predictions.append(result)
+	print('> predicted=' + repr(result) + ', actual=' + repr(testSet[x][-1]))
+accuracy = getAccuracy(testSet, predictions)
+print('Accuracy: ' + repr(accuracy) + '%')
+
 #dataArray["mlII"] = bandPassFilter(dataArray["mlII"])
 samplesToPlot = 1000
+
+'''
 x = list(map(float, ecgData.keys()))[:samplesToPlot]
 y = list(ecgData.values())[:samplesToPlot]
+
 plt.plot(x, y)
 plt.annotate(featureList[0][3], xy=(float(featureList[0][0]), featureList[0][1]))
 plt.annotate(featureList[1][3], xy=(float(featureList[1][0]), featureList[1][1]))
 plt.annotate(featureList[2][3], xy=(float(featureList[2][0]), featureList[2][1]))
 plt.show()
+'''
