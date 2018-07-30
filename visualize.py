@@ -1,4 +1,3 @@
-
 import os
 import matplotlib.pyplot as plt
 import math
@@ -7,6 +6,7 @@ import time
 from scipy import signal
 from collections import OrderedDict
 import requests
+import random
 
 # List to capture features of heartBeats
 featureList = []
@@ -69,7 +69,7 @@ def getTrainingData():
 						tempval.remove(x)
 				time = tempval[0]
 				mlIIvalue = tempval[1]
-				tempEcgData.update({float(time): float(mlIIvalue), "Patient": float(patientCounter)})
+				tempEcgData.update({float(time): float(mlIIvalue)})
 			tempEcgData.popitem(last=False)
 		finalECGdata.update(tempEcgData)
 	return finalECGdata
@@ -106,7 +106,8 @@ def RPeakExtraction(capture):
 		#Clear the singleRPeakMap for the next RPeak, set capture to false
 		elif (capture == True):
 			RPeak = max(singleRPeakMap.items(), key=operator.itemgetter(1))
-			heartBeatTimes.append(float(RPeak[0]))
+			print(RPeak[0])
+			heartBeatTimes.append(float(RPeak[1]))
 			tempRPeaks.update({str(RPeak[0]): float(RPeak[1])})
 			singleRPeakMap.clear()
 			capture = False
@@ -121,7 +122,58 @@ def getRRIntervals():
 		tempRRIntervalList.append(heartBeatTimes[i+1] - heartBeatTimes[i])
 	counter = 0
 	return tempRRIntervalList
+
+    
+def loadDataset(featureList, split, trainingSet=[] , testSet=[]):
+    dataset = list(featureList)
+    print(featureList[1])
+    for x in range(len(featureList)-1):
+        for y in range(3):
+            featureList[x][y] = float(featureList[x][y])
+        if random.random() < split:
+            trainingSet.append(featureList[x])
+        else:
+            testSet.append(featureList[x])
+    
+def euclideanDistance(instance1, instance2, length):
+	distance = 0
+	for x in range(length):
+		distance += pow((instance1[x] - instance2[x]), 2)
+	return math.sqrt(distance)
+ 
+def getNeighbors(trainingSet, testInstance, k):
+	distances = []
+	length = len(testInstance)-1
+	for x in range(len(trainingSet)):
+		dist = euclideanDistance(testInstance, trainingSet[x], length)
+		distances.append((trainingSet[x], dist))
+	distances.sort(key=operator.itemgetter(1))
+	neighbors = []
+	for x in range(k):
+		neighbors.append(distances[x][0])
+	return neighbors
+ 
+def getResponse(neighbors):
+	classVotes = {}
+	for x in range(len(neighbors)):
+		response = neighbors[x][-1]
+		if response in classVotes:
+			classVotes[response] += 1
+		else:
+			classVotes[response] = 1
+	sortedVotes = sorted(classVotes.items(), key=operator.itemgetter(1), reverse=True)
+	return sortedVotes[0][0]
+ 
+def getAccuracy(testSet, predictions):
+	correct = 0
+	for x in range(len(testSet)):
+		if testSet[x][-1] == predictions[x]:
+			correct += 1
+	return (correct/float(len(testSet))) * 100.0
 	
+	
+	
+
 ecgData = getTrainingData()
 classifications = getTrainingClassifications()
 #Normalized value of mlII
@@ -139,26 +191,47 @@ RRIntervalList = getRRIntervals()
 
 #remove first beats from data - these are incomplete feature wise
 for key in RPeaksMap.keys():
-	print("The key : " + key)
-	if float(key) < 0.6:
-		del RPeaksMap[key]
-	break
+    print("The key : " + key)
+    if float(key) < 0.6:
+        del RPeaksMap[key]
+    break
+    
 print (len(RPeaksMap))
 print (len(RRIntervalList))
 print (len(classifications))
 
-for key,value in RPeaksMap.items():
-	time = key
-	RPeakValue = value
-	RRInterval = RRIntervalList[counter]
-	classification = classifications[counter]
-	featureList.append([time, RPeakValue, RRInterval, classification])
-	counter = counter + 1
+counter = 0
 
+for key, value in RPeaksMap.items():
+    time = key
+    RPeakValue = value
+    RRInterval = RRIntervalList[counter]
+    classification = classifications[counter]
+    featureList.append([time, RPeakValue, RRInterval, classification])
+    counter = counter + 1
+
+# prepare data
+trainingSet=[]
+testSet=[]
+split = 0.67
+loadDataset(featureList, split, trainingSet, testSet)
+# generate predictions
+predictions=[]
+k = 3
+for x in range(len(testSet)):
+    neighbors = getNeighbors(trainingSet, testSet[x], k)
+    result = getResponse(neighbors)
+    predictions.append(result)
+    print('> predicted=' + repr(result) + ', actual=' + repr(testSet[x][-1]))
+accuracy = getAccuracy(testSet, predictions)
+print('Accuracy: ' + repr(accuracy) + '%')
+	
+	
 #for time in dataArray["time"]:
-
 #dataArray["mlII"] = bandPassFilter(dataArray["mlII"])
+
 samplesToPlot = 1000
+'''
 x = list(map(float, ecgData.keys()))[:samplesToPlot]
 y = list(ecgData.values())[:samplesToPlot]
 plt.plot(x, y)
@@ -166,4 +239,4 @@ plt.annotate(featureList[0][3], xy=(float(featureList[0][0]), featureList[0][1])
 plt.annotate(featureList[1][3], xy=(float(featureList[1][0]), featureList[1][1]))
 plt.annotate(featureList[2][3], xy=(float(featureList[2][0]), featureList[2][1]))
 plt.show()
-
+'''
