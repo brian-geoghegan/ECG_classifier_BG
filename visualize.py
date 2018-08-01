@@ -47,11 +47,12 @@ def get_change(current, previous):
 def getTrainingData():
 	ECGdata = OrderedDict()
 	patientCounter = 0
-	for filename in os.listdir("."):
+	for filename in os.listdir("./mitdb"):
 		tempEcgData = OrderedDict()
 		if filename.startswith("data"):
+			print(filename)
 			patientCounter = patientCounter + 1
-			ecg_data_file = open(filename, "r")
+			ecg_data_file = open("mitdb/" +filename, "r")
 			data = ecg_data_file.readlines()
 			for x in data:
 				x = x.strip().replace("\t","")
@@ -69,9 +70,9 @@ def getTrainingData():
 #get class for each beat
 def getTrainingClassifications():
 	tempClassifications = []
-	for filename in os.listdir("."):
+	for filename in os.listdir("./mitdb"):
 		if filename.startswith("annotation"):
-			annotation_file = open(filename, "r")
+			annotation_file = open("mitdb/" + filename, "r")
 			annotations = annotation_file.readlines()
 			for x in annotations:
 				x = x.strip().replace("\t","")
