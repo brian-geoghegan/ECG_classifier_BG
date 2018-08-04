@@ -7,7 +7,18 @@ from scipy import signal
 from collections import OrderedDict
 import requests
 import random
+import psutil
 
+def getRemainingBatteryPower():
+	battery = psutil.sensors_battery()
+	plugged = battery.power_plugged
+	percent = str(battery.percent)
+	if plugged==False: 
+		plugged = "Not Plugged In"
+	else: 
+		plugged = "Plugged In"
+		print(percent+'% | '+plugged)
+	
 def butter_bandpass(lowcut, highcut, fs, order=5):
 	nyq = 0.5 * fs
 	low = lowcut / nyq
@@ -64,7 +75,11 @@ def getTrainingData():
 				mlIIvalue = tempval[1]
 				tempEcgData.update({float(time): float(mlIIvalue)})
 			tempEcgData.popitem(last=False)
+			mlIIAverageValue = math.sqrt(sum(tempEcgData.values())*sum(tempEcgData.values())) / len(tempEcgData)
+			averageHeartRates.append(mlIIAverageValue)
+			print("Finished with: " + filename)
 		ECGdata.update(tempEcgData)
+
 	return ECGdata
 	
 #get class for each beat
@@ -174,70 +189,73 @@ def reportArrhytmia(data):
 	url = ""
 	req = requests.post(url, data)
 	print(req.status_code, r.reason)
-   
-ecgData = getTrainingData()
-classifications = getTrainingClassifications()
 
-# List to capture features of heartBeats
 featureList = []
-# Data sampled at 360/second
-samplingFreq = 360
 
-heartBeatTimes = []
-#have r_peaks - get average heartbeats per min - feature
+def main():
+	averageHeartRates = []
+	ecgData = getTrainingData()
+	classifications = getTrainingClassifications()
 
-mlIIAverageValue = math.sqrt(sum(ecgData.values())*sum(ecgData.values())) / len(ecgData)
+	# List to capture features of heartBeats
+	# Data sampled at 360/second
+	samplingFreq = 360
 
-print("Average value: " + str(mlIIAverageValue))
+	heartBeatTimes = []
+	#have r_peaks - get average heartbeats per min - feature
+
+	print("Average value: " + str(averageHeartRates))
 
 
-RPeaksMap = RPeakExtraction(False)
-RRIntervalList = getRRIntervals()
+	RPeaksMap = RPeakExtraction(False)
+	RRIntervalList = getRRIntervals()
 
-averageBeatsPerMin = len(RPeaksMap)//30
-print("Beats per min: " + str(averageBeatsPerMin))
+	averageBeatsPerMin = len(RPeaksMap)//30
+	print("Beats per min: " + str(averageBeatsPerMin))
 
-print (len(RPeaksMap))
-print (len(RRIntervalList))
-print (len(classifications))
+	print (len(RPeaksMap))
+	print (len(RRIntervalList))
+	print (len(classifications))
 
-counter = 0
+	counter = 0
 
-#Get final feature map
-for key, value in RPeaksMap.items():
-	time = key
-	RPeakValue = value
-	RRInterval = RRIntervalList[counter]
-	classification = classifications[counter]
-	featureList.append([time, RPeakValue, RRInterval, classification])
-	counter = counter + 1
+	#Get final feature map
+	for key, value in RPeaksMap.items():
+		time = key
+		RPeakValue = value
+		RRInterval = RRIntervalList[counter]
+		classification = classifications[counter]
+		featureList.append([time, RPeakValue, RRInterval, classification])
+		counter = counter + 1
 
-# prepare data
-trainingSet=[]
-testSet=[]
-split = 0.67
-loadDataset(featureList, split, trainingSet, testSet)
-# generate predictions
-predictions=[]
-k = 3
-for x in range(len(testSet)):
-	neighbors = getNeighbors(trainingSet, testSet[x], k)
-	result = getResponse(neighbors)
-	predictions.append(result)
-	print('> predicted=' + repr(result) + ', actual=' + repr(testSet[x][-1]))
-accuracy = getAccuracy(testSet, predictions)
-print('Accuracy: ' + repr(accuracy) + '%')
+	# prepare data
+	trainingSet=[]
+	testSet=[]
+	split = 0.67
+	loadDataset(featureList, split, trainingSet, testSet)
+	# generate predictions
+	predictions=[]
+	k = 3
+	for x in range(len(testSet)):
+		neighbors = getNeighbors(trainingSet, testSet[x], k)
+		result = getResponse(neighbors)
+		predictions.append(result)
+		print('> predicted=' + repr(result) + ', actual=' + repr(testSet[x][-1]))
+	accuracy = getAccuracy(testSet, predictions)
+	print('Accuracy: ' + repr(accuracy) + '%')
 	
-	
-#for time in dataArray["time"]:
-#dataArray["mlII"] = bandPassFilter(dataArray["mlII"])
-samplesToPlot = 1000
+def plot():
+	#for time in dataArray["time"]:
+	#dataArray["mlII"] = bandPassFilter(dataArray["mlII"])
+	samplesToPlot = 1000
 
-x = list(map(float, ecgData.keys()))[:samplesToPlot]
-y = list(ecgData.values())[:samplesToPlot]
-plt.plot(x, y)
-plt.annotate(featureList[0][3], xy=(float(featureList[0][0]), featureList[0][1]))
-plt.annotate(featureList[1][3], xy=(float(featureList[1][0]), featureList[1][1]))
-plt.annotate(featureList[2][3], xy=(float(featureList[2][0]), featureList[2][1]))
-plt.show()
-
+	x = list(map(float, ecgData.keys()))[:samplesToPlot]
+	y = list(ecgData.values())[:samplesToPlot]
+	plt.plot(x, y)
+	plt.annotate(featureList[0][3], xy=(float(featureList[0][0]), featureList[0][1]))
+	plt.annotate(featureList[1][3], xy=(float(featureList[1][0]), featureList[1][1]))
+	plt.annotate(featureList[2][3], xy=(float(featureList[2][0]), featureList[2][1]))
+	plt.show()
+getRemainingBatteryPower()
+main()
+plot()
